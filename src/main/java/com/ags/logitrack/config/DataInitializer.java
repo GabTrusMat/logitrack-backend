@@ -3,12 +3,16 @@ package com.ags.logitrack.config;
 import com.ags.logitrack.model.EntregaSimulada;
 import com.ags.logitrack.model.EventoSensorial;
 import com.ags.logitrack.model.RoboLogistico;
+import com.ags.logitrack.model.Usuario;
 import com.ags.logitrack.repository.EntregaSimuladaRepository;
 import com.ags.logitrack.repository.EventoSensorialRepository;
 import com.ags.logitrack.repository.RoboLogisticoRepository;
+import com.ags.logitrack.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+// Adicionados os imports de Usuario, UsuarioRepository e PasswordEncoder.
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -28,10 +32,23 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private EntregaSimuladaRepository entregaSimuladaRepository;
 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    // Adicionadas as dependências UsuarioRepository e PasswordEncoder como atributos da classe.
+
     private Random random = new Random();
 
     @Override
     public void run(String... args) {
+        // Criar usuários padrão primeiro
+        criarUsuariosPadrao();
+
+        // Adicionada a chamada ao método criarUsuariosPadrao() no início do método run().
+
         // Verifica se o banco de dados está vazio
         if (roboLogisticoRepository.count() == 0) {
             System.out.println("Inicializando banco de dados com dados de exemplo...");
@@ -57,8 +74,7 @@ public class DataInitializer implements CommandLineRunner {
                     new RoboLogistico("RB-017", "CargoMaster X2", "MANUTENÇÃO", 34.6, "Oficina Técnica"),
                     new RoboLogistico("RB-018", "LogiDroid 4.0", "ATIVO", 79.2, "Doca de Recebimento 3"),
                     new RoboLogistico("RB-019", "HeavyLifter Pro", "ATIVO", 86.7, "Armazém B - Setor Pesado"),
-                    new RoboLogistico("RB-020", "TransportBot 3000", "ATIVO", 90.1, "Área de Picking")
-            );
+                    new RoboLogistico("RB-020", "TransportBot 3000", "ATIVO", 90.1, "Área de Picking"));
 
             // Salva todos os robôs no banco de dados
             List<RoboLogistico> robosSalvos = roboLogisticoRepository.saveAll(robos);
@@ -67,8 +83,9 @@ public class DataInitializer implements CommandLineRunner {
 
             // Criar eventos sensoriais
             List<EventoSensorial> eventosSensoriais = new ArrayList<>();
-            String[] tiposSensores = {"Proximidade", "Temperatura", "Umidade", "Movimento", "Peso", "Obstáculo", "Luminosidade"};
-            String[] statusSensor = {"NORMAL", "ALERTA", "CRÍTICO", "MANUTENÇÃO"};
+            String[] tiposSensores = { "Proximidade", "Temperatura", "Umidade", "Movimento", "Peso", "Obstáculo",
+                    "Luminosidade" };
+            String[] statusSensor = { "NORMAL", "ALERTA", "CRÍTICO", "MANUTENÇÃO" };
 
             for (RoboLogistico robo : robosSalvos) {
                 // Cada robô terá entre 3 e 8 eventos sensoriais
@@ -117,8 +134,7 @@ public class DataInitializer implements CommandLineRunner {
                             leitura,
                             dataHora,
                             robo.getLocalizacao(),
-                            status
-                    );
+                            status);
 
                     eventosSensoriais.add(evento);
                 }
@@ -130,9 +146,10 @@ public class DataInitializer implements CommandLineRunner {
 
             // Criar entregas simuladas
             List<EntregaSimulada> entregas = new ArrayList<>();
-            String[] origens = {"Armazém A", "Armazém B", "Armazém C", "Doca de Recebimento", "Área de Consolidação"};
-            String[] destinos = {"Área de Picking", "Doca de Expedição", "Área de Embalagem", "Área de Separação", "Cliente Final"};
-            String[] statusEntrega = {"PENDENTE", "EM_ANDAMENTO", "CONCLUÍDA", "CANCELADA", "ATRASADA"};
+            String[] origens = { "Armazém A", "Armazém B", "Armazém C", "Doca de Recebimento", "Área de Consolidação" };
+            String[] destinos = { "Área de Picking", "Doca de Expedição", "Área de Embalagem", "Área de Separação",
+                    "Cliente Final" };
+            String[] statusEntrega = { "PENDENTE", "EM_ANDAMENTO", "CONCLUÍDA", "CANCELADA", "ATRASADA" };
 
             // Apenas robôs ativos podem fazer entregas
             List<RoboLogistico> robosAtivos = robosSalvos.stream()
@@ -169,8 +186,7 @@ public class DataInitializer implements CommandLineRunner {
                     }
 
                     // Distância percorrida (apenas para entregas concluídas)
-                    Double distancia = "CONCLUÍDA".equals(status) ?
-                            (random.nextDouble() * 10) + 0.5 : null;
+                    Double distancia = "CONCLUÍDA".equals(status) ? (random.nextDouble() * 10) + 0.5 : null;
 
                     // Observações
                     String observacoes = "";
@@ -214,8 +230,7 @@ public class DataInitializer implements CommandLineRunner {
                             dataFim,
                             status,
                             distancia,
-                            observacoes
-                    );
+                            observacoes);
 
                     entregas.add(entrega);
                 }
@@ -227,6 +242,42 @@ public class DataInitializer implements CommandLineRunner {
 
         } else {
             System.out.println("Banco de dados já contém dados. Pulando inicialização.");
+        }
+    }
+
+    // Foi criado o método privado criarUsuariosPadrao(), responsável por criar os usuários padrão (admin e user) caso não existam no banco.
+
+    private void criarUsuariosPadrao() {
+        // Criar usuário administrador padrão se não existir
+        if (!usuarioRepository.existsByUsername("admin")) {
+            Usuario admin = new Usuario();
+            admin.setUsername("admin");
+            admin.setEmail("admin@logitrack.com");
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setNomeCompleto("Administrador");
+            admin.setTelefone("(11) 99999-9999");
+            admin.setTipoUsuario(Usuario.TipoUsuario.ADMIN);
+            admin.setAtivo(true);
+            admin.setDataCriacao(LocalDateTime.now());
+
+            usuarioRepository.save(admin);
+            System.out.println("Usuário administrador criado: admin / admin123");
+        }
+
+        // Criar usuário padrão se não existir
+        if (!usuarioRepository.existsByUsername("user")) {
+            Usuario user = new Usuario();
+            user.setUsername("user");
+            user.setEmail("user@logitrack.com");
+            user.setPassword(passwordEncoder.encode("user123"));
+            user.setNomeCompleto("Usuário Padrão");
+            user.setTelefone("(11) 88888-8888");
+            user.setTipoUsuario(Usuario.TipoUsuario.USUARIO);
+            user.setAtivo(true);
+            user.setDataCriacao(LocalDateTime.now());
+
+            usuarioRepository.save(user);
+            System.out.println("Usuário padrão criado: user / user123");
         }
     }
 }
